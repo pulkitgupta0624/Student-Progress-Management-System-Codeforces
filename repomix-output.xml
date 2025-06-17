@@ -1,0 +1,3979 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+4. Repository files, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+<additional_info>
+
+</additional_info>
+
+</file_summary>
+
+<directory_structure>
+backend/.env
+backend/package.json
+backend/src/app.js
+backend/src/controllers/codeforcesController.js
+backend/src/controllers/settingsController.js
+backend/src/controllers/studentController.js
+backend/src/middleware/errorHandler.js
+backend/src/models/CodeforcesData.js
+backend/src/models/Settings.js
+backend/src/models/Student.js
+backend/src/routes/codeforces.js
+backend/src/routes/settings.js
+backend/src/routes/student.js
+backend/src/services/codeforcesService.js
+backend/src/services/cronService.js
+backend/src/services/emailService.js
+frontend/.gitignore
+frontend/eslint.config.js
+frontend/index.html
+frontend/package.json
+frontend/postcss.config.js
+frontend/public/vite.svg
+frontend/README.md
+frontend/src/App.css
+frontend/src/App.tsx
+frontend/src/assets/react.svg
+frontend/src/components/ContestHistory.tsx
+frontend/src/components/Navbar.tsx
+frontend/src/components/ProblemSolvingData.tsx
+frontend/src/components/StudentForm.tsx
+frontend/src/components/StudentProfile.tsx
+frontend/src/components/StudentTable.tsx
+frontend/src/components/SubmissionHeatmap.tsx
+frontend/src/components/ThemeToggle.tsx
+frontend/src/components/ui/Button.tsx
+frontend/src/components/ui/Card.tsx
+frontend/src/components/ui/Input.tsx
+frontend/src/components/ui/Modal.tsx
+frontend/src/contexts/ThemeContext.tsx
+frontend/src/hooks/useCodeforces.ts
+frontend/src/hooks/useStudents.ts
+frontend/src/index.css
+frontend/src/main.tsx
+frontend/src/services/api.ts
+frontend/src/types/index.ts
+frontend/src/utils/chartUtils.ts
+frontend/src/utils/csvUtils.ts
+frontend/src/utils/dateUtils.ts
+frontend/src/vite-env.d.ts
+frontend/tailwind.config.js
+frontend/tsconfig.app.json
+frontend/tsconfig.json
+frontend/tsconfig.node.json
+frontend/vite.config.ts
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="backend/.env">
+PORT=5000
+NODE_ENV=development
+MONGODB_URI=mongodb://localhost:27017/student_progress
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-pulkitgupta059@gmail.com
+EMAIL_PASS=bvjl smiz cypv ekzs
+CODEFORCES_API_URL=https://codeforces.com/api
+JWT_SECRET=qazxswedcvfrtgbnhyujmkiolp
+ADMIN_EMAIL=admin@example.com
+</file>
+
+<file path="backend/package.json">
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.10.0",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.1.0",
+    "json2csv": "^6.0.0-alpha.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.15.2",
+    "morgan": "^1.10.0",
+    "node-cron": "^4.1.0",
+    "nodemailer": "^7.0.3"
+  }
+}
+</file>
+
+<file path="backend/src/app.js">
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+require('dotenv').config();
+
+const { errorHandler } = require('./middleware/errorHandler');
+const cronService = require('./services/cronService');
+
+// Import routes
+const studentRoutes = require('./routes/student');
+const codeforcesRoutes = require('./routes/codeforces');
+const settingsRoutes = require('./routes/settings');
+
+const app = express();
+
+// Security middleware
+app.use(helmet());
+app.use(morgan('combined'));
+
+// CORS configuration
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://your-domain.com'] 
+    : ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true
+}));
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Database connection
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/student_progress')
+  .then(() => {
+    console.log('Connected to MongoDB');
+    // Start cron jobs after DB connection
+    cronService.initializeCronJobs();
+  })
+  .catch((error) => {
+    console.error('MongoDB connection error:', error);
+    process.exit(1);
+  });
+
+// Routes
+app.use('/api/students', studentRoutes);
+app.use('/api/codeforces', codeforcesRoutes);
+app.use('/api/settings', settingsRoutes);
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV 
+  });
+});
+
+// Error handling middleware
+app.use(errorHandler);
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({ message: 'Route not found' });
+});
+
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+});
+
+module.exports = app;
+</file>
+
+<file path="backend/src/controllers/codeforcesController.js">
+const codeforcesService = require('../services/codeforcesService');
+const cronService = require('../services/cronService');
+
+exports.syncAllStudents = async (req, res) => {
+  try {
+    const results = await cronService.manualSync();
+    res.json({
+      message: 'Sync completed successfully',
+      results
+    });
+  } catch (error) {
+    console.error('Manual sync error:', error);
+    res.status(500).json({
+      message: 'Sync failed',
+      error: error.message
+    });
+  }
+};
+
+exports.getStudentAnalytics = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { days = 30 } = req.query;
+    
+    const analytics = await codeforcesService.getStudentAnalytics(
+      studentId, 
+      parseInt(days)
+    );
+    
+    if (!analytics) {
+      return res.status(404).json({ message: 'No data found for this student' });
+    }
+    
+    res.json(analytics);
+  } catch (error) {
+    console.error('Error getting analytics:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+</file>
+
+<file path="backend/src/controllers/settingsController.js">
+const Settings = require('../models/Settings');
+const cronService = require('../services/cronService');
+
+exports.getSettings = async (req, res) => {
+  try {
+    let settings = await Settings.findOne();
+    if (!settings) {
+      settings = new Settings();
+      await settings.save();
+    }
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.updateCronSchedule = async (req, res) => {
+  try {
+    const { schedule } = req.body;
+    
+    await cronService.updateSyncSchedule(schedule);
+    
+    await Settings.findOneAndUpdate(
+      {},
+      { cronSchedule: schedule },
+      { upsert: true }
+    );
+    
+    res.json({ message: 'Cron schedule updated successfully' });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+exports.manualSync = async (req, res) => {
+  try {
+    const results = await cronService.manualSync();
+    res.json({
+      message: 'Manual sync completed',
+      results
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+</file>
+
+<file path="backend/src/controllers/studentController.js">
+const Student = require('../models/Student');
+const CodeforcesData = require('../models/CodeforcesData');
+const codeforcesService = require('../services/codeforcesService');
+
+// Get all students
+exports.getAllStudents = async (req, res) => {
+    try {
+        const students = await Student.find({ isActive: true }).sort({ createdAt: -1 });
+        res.json(students);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get student by ID
+exports.getStudentById = async (req, res) => {
+    try {
+        const student = await Student.findById(req.params.id);
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+        res.json(student);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Create new student
+exports.createStudent = async (req, res) => {
+    try {
+        const { name, email, phoneNumber, codeforcesHandle } = req.body;
+
+        // Check if email already exists
+        const existingEmail = await Student.findOne({ email: email.toLowerCase() });
+        if (existingEmail) {
+            return res.status(400).json({ message: 'Email already exists' });
+        }
+
+        // Check if codeforces handle already exists
+        const existingHandle = await Student.findOne({
+            codeforcesHandle: codeforcesHandle.toLowerCase()
+        });
+        if (existingHandle) {
+            return res.status(400).json({ message: 'Codeforces handle already exists' });
+        }
+
+        const student = new Student({
+            name,
+            email: email.toLowerCase(),
+            phoneNumber,
+            codeforcesHandle: codeforcesHandle.toLowerCase()
+        });
+
+        const savedStudent = await student.save();
+
+        // Fetch initial Codeforces data
+        try {
+            await codeforcesService.syncStudentData(savedStudent._id, savedStudent.codeforcesHandle);
+        } catch (cfError) {
+            console.error('Error fetching initial Codeforces data:', cfError.message);
+            // Don't fail student creation if CF data fetch fails
+        }
+
+        res.status(201).json(savedStudent);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+// Update student
+exports.updateStudent = async (req, res) => {
+    try {
+        const { name, email, phoneNumber, codeforcesHandle, emailRemindersEnabled } = req.body;
+        const studentId = req.params.id;
+
+        const existingStudent = await Student.findById(studentId);
+        if (!existingStudent) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+
+        // Check if email already exists (excluding current student)
+        if (email && email !== existingStudent.email) {
+            const existingEmail = await Student.findOne({
+                email: email.toLowerCase(),
+                _id: { $ne: studentId }
+            });
+            if (existingEmail) {
+                return res.status(400).json({ message: 'Email already exists' });
+            }
+        }
+
+        // Check if codeforces handle already exists (excluding current student)
+        if (codeforcesHandle && codeforcesHandle !== existingStudent.codeforcesHandle) {
+            const existingHandle = await Student.findOne({
+                codeforcesHandle: codeforcesHandle.toLowerCase(),
+                _id: { $ne: studentId }
+            });
+            if (existingHandle) {
+                return res.status(400).json({ message: 'Codeforces handle already exists' });
+            }
+        }
+
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (email) updateData.email = email.toLowerCase();
+        if (phoneNumber) updateData.phoneNumber = phoneNumber;
+        if (emailRemindersEnabled !== undefined) updateData.emailRemindersEnabled = emailRemindersEnabled;
+
+        // If codeforces handle is being updated, fetch new data
+        if (codeforcesHandle && codeforcesHandle !== existingStudent.codeforcesHandle) {
+            updateData.codeforcesHandle = codeforcesHandle.toLowerCase();
+
+            try {
+                // Sync new Codeforces data immediately
+                await codeforcesService.syncStudentData(studentId, codeforcesHandle.toLowerCase());
+            } catch (cfError) {
+                console.error('Error syncing new Codeforces data:', cfError.message);
+                return res.status(400).json({
+                    message: 'Invalid Codeforces handle or API error',
+                    error: cfError.message
+                });
+            }
+        }
+
+        const updatedStudent = await Student.findByIdAndUpdate(
+            studentId,
+            updateData,
+            { new: true, runValidators: true }
+        );
+
+        res.json(updatedStudent);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+// Delete student (soft delete)
+exports.deleteStudent = async (req, res) => {
+    try {
+        const student = await Student.findByIdAndUpdate(
+            req.params.id,
+            { isActive: false },
+            { new: true }
+        );
+
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+
+        res.json({ message: 'Student deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Export students as CSV
+exports.exportStudentsCSV = async (req, res) => {
+    try {
+        const students = await Student.find({ isActive: true }).lean();
+
+        const fields = [
+            'name',
+            'email',
+            'phoneNumber',
+            'codeforcesHandle',
+            'currentRating',
+            'maxRating',
+            'lastUpdated',
+            'reminderCount'
+        ];
+
+        // Simple CSV generation without external library for now
+        const headers = fields.join(',');
+        const csvRows = students.map(student =>
+            fields.map(field => {
+                const value = student[field] || '';
+                return typeof value === 'string' && value.includes(',')
+                    ? `"${value}"`
+                    : value;
+            }).join(',')
+        );
+
+        const csv = [headers, ...csvRows].join('\n');
+
+        res.header('Content-Type', 'text/csv');
+        res.attachment('students.csv');
+        res.send(csv);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Get student's Codeforces data
+exports.getStudentCodeforcesData = async (req, res) => {
+    try {
+        const studentId = req.params.id;
+        const { days = 30 } = req.query;
+
+        console.log(`Fetching Codeforces data for student: ${studentId}`);
+
+        const student = await Student.findById(studentId);
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+
+        // Try to get existing Codeforces data
+        let codeforcesData = await CodeforcesData.findOne({ studentId });
+
+        // If no data exists or data is old (more than 1 hour), try to sync
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        if (!codeforcesData || codeforcesData.lastSyncTime < oneHourAgo) {
+            console.log(`No recent data found for ${student.codeforcesHandle}, attempting to sync...`);
+            try {
+                codeforcesData = await codeforcesService.syncStudentData(studentId, student.codeforcesHandle);
+            } catch (syncError) {
+                console.error('Failed to sync data:', syncError.message);
+
+                // If sync fails but we have old data, use it
+                if (codeforcesData) {
+                    console.log('Using existing data despite sync failure');
+                } else {
+                    return res.status(400).json({
+                        message: 'Failed to fetch Codeforces data',
+                        error: syncError.message
+                    });
+                }
+            }
+        }
+
+        // Get analytics for the requested time period
+        const analytics = await codeforcesService.getStudentAnalytics(studentId, parseInt(days));
+
+        console.log(`Returning data: ${codeforcesData.contests?.length || 0} contests, ${codeforcesData.submissions?.length || 0} submissions`);
+
+        res.json({
+            student,
+            codeforcesData,
+            analytics
+        });
+    } catch (error) {
+        console.error('Error in getStudentCodeforcesData:', error);
+        res.status(500).json({
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred'
+        });
+    }
+};
+
+// Manual sync for specific student
+exports.syncStudentData = async (req, res) => {
+    try {
+        const studentId = req.params.id;
+
+        const student = await Student.findById(studentId);
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+
+        // For now, just update the lastUpdated timestamp
+        await Student.findByIdAndUpdate(studentId, {
+            lastUpdated: new Date()
+        });
+
+        res.json({
+            message: 'Student data synced successfully (mock implementation)',
+            data: { synced: true }
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: 'Error syncing student data',
+            error: error.message
+        });
+    }
+};
+</file>
+
+<file path="backend/src/middleware/errorHandler.js">
+const errorHandler = (err, req, res, next) => {
+  console.error('Error:', err);
+
+  // Mongoose validation error
+  if (err.name === 'ValidationError') {
+    const errors = Object.values(err.errors).map(e => e.message);
+    return res.status(400).json({
+      message: 'Validation Error',
+      errors
+    });
+  }
+
+  // Mongoose duplicate key error
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue)[0];
+    return res.status(400).json({
+      message: `${field} already exists`
+    });
+  }
+
+  // JWT errors
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({
+      message: 'Invalid token'
+    });
+  }
+
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      message: 'Token expired'
+    });
+  }
+
+  // Default error
+  res.status(err.statusCode || 500).json({
+    message: err.message || 'Internal Server Error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+};
+
+module.exports = { errorHandler };
+</file>
+
+<file path="backend/src/models/CodeforcesData.js">
+const mongoose = require('mongoose');
+
+// More flexible submission schema that matches actual Codeforces API
+const submissionSchema = new mongoose.Schema({
+  id: { type: Number, required: false },
+  contestId: { type: Number, required: false },
+  creationTimeSeconds: { type: Number, required: false },
+  relativeTimeSeconds: { type: Number, required: false },
+  problem: {
+    contestId: { type: Number, required: false },
+    index: { type: String, required: false },
+    name: { type: String, required: false },
+    type: { type: String, required: false },
+    rating: { type: Number, required: false },
+    tags: [{ type: String, required: false }]
+  },
+  author: {
+    contestId: { type: Number, required: false },
+    members: [{
+      handle: { type: String, required: false }
+    }],
+    participantType: { type: String, required: false },
+    ghost: { type: Boolean, required: false },
+    startTimeSeconds: { type: Number, required: false }
+  },
+  programmingLanguage: { type: String, required: false },
+  verdict: { type: String, required: false },
+  testset: { type: String, required: false },
+  passedTestCount: { type: Number, required: false },
+  timeConsumedMillis: { type: Number, required: false },
+  memoryConsumedBytes: { type: Number, required: false }
+}, { _id: false, strict: false });
+
+// Flexible contest schema
+const contestSchema = new mongoose.Schema({
+  contestId: { type: Number, required: false },
+  contestName: { type: String, required: false },
+  handle: { type: String, required: false },
+  rank: { type: Number, required: false },
+  ratingUpdateTimeSeconds: { type: Number, required: false },
+  oldRating: { type: Number, required: false },
+  newRating: { type: Number, required: false }
+}, { _id: false, strict: false });
+
+const codeforcesDataSchema = new mongoose.Schema({
+  studentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Student',
+    required: true
+  },
+  handle: {
+    type: String,
+    required: true,
+    lowercase: true
+  },
+  submissions: [submissionSchema],
+  contests: [contestSchema],
+  userInfo: {
+    type: mongoose.Schema.Types.Mixed, // Allow any structure
+    required: false
+  },
+  lastSyncTime: {
+    type: Date,
+    default: Date.now
+  }
+}, {
+  timestamps: true,
+  strict: false // Allow additional fields
+});
+
+codeforcesDataSchema.index({ studentId: 1 });
+codeforcesDataSchema.index({ handle: 1 });
+codeforcesDataSchema.index({ lastSyncTime: 1 });
+
+module.exports = mongoose.model('CodeforcesData', codeforcesDataSchema);
+</file>
+
+<file path="backend/src/models/Settings.js">
+const mongoose = require('mongoose');
+
+const settingsSchema = new mongoose.Schema({
+  cronSchedule: {
+    type: String,
+    default: '0 2 * * *' // 2 AM daily
+  },
+  cronFrequency: {
+    type: String,
+    enum: ['hourly', 'daily', 'weekly'],
+    default: 'daily'
+  },
+  inactivityThreshold: {
+    type: Number,
+    default: 7 // days
+  },
+  emailEnabled: {
+    type: Boolean,
+    default: true
+  },
+  lastCronRun: {
+    type: Date,
+    default: null
+  },
+  adminEmail: {
+    type: String,
+    default: process.env.ADMIN_EMAIL
+  }
+}, {
+  timestamps: true
+});
+
+module.exports = mongoose.model('Settings', settingsSchema);
+</file>
+
+<file path="backend/src/models/Student.js">
+const mongoose = require('mongoose');
+
+const studentSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true
+  },
+  phoneNumber: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  codeforcesHandle: {
+    type: String,
+    required: true,
+    trim: true,
+    lowercase: true
+  },
+  currentRating: {
+    type: Number,
+    default: 0
+  },
+  maxRating: {
+    type: Number,
+    default: 0
+  },
+  lastUpdated: {
+    type: Date,
+    default: Date.now
+  },
+  emailRemindersEnabled: {
+    type: Boolean,
+    default: true
+  },
+  reminderCount: {
+    type: Number,
+    default: 0
+  },
+  lastReminderSent: {
+    type: Date,
+    default: null
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  }
+}, {
+  timestamps: true
+});
+
+// Index for efficient queries
+studentSchema.index({ codeforcesHandle: 1 });
+studentSchema.index({ email: 1 });
+studentSchema.index({ lastUpdated: 1 });
+
+module.exports = mongoose.model('Student', studentSchema);
+</file>
+
+<file path="backend/src/routes/codeforces.js">
+const express = require('express');
+const router = express.Router();
+const codeforcesController = require('../controllers/codeforcesController');
+
+router.post('/sync-all', codeforcesController.syncAllStudents);
+router.get('/analytics/:studentId', codeforcesController.getStudentAnalytics);
+
+module.exports = router;
+</file>
+
+<file path="backend/src/routes/settings.js">
+const express = require('express');
+const router = express.Router();
+const settingsController = require('../controllers/settingsController');
+
+router.get('/', settingsController.getSettings);
+router.put('/cron', settingsController.updateCronSchedule);
+router.post('/sync', settingsController.manualSync);
+
+module.exports = router;
+</file>
+
+<file path="backend/src/routes/student.js">
+const express = require('express');
+const router = express.Router();
+const studentController = require('../controllers/studentController');
+
+// Student CRUD routes
+router.get('/', studentController.getAllStudents);
+router.get('/export/csv', studentController.exportStudentsCSV);
+router.get('/:id', studentController.getStudentById);
+router.get('/:id/codeforces', studentController.getStudentCodeforcesData); // Add this line
+router.post('/', studentController.createStudent);
+router.put('/:id', studentController.updateStudent);
+router.delete('/:id', studentController.deleteStudent);
+router.post('/:id/sync', studentController.syncStudentData); // Add this line too
+
+module.exports = router;
+</file>
+
+<file path="backend/src/services/codeforcesService.js">
+const axios = require('axios');
+const Student = require('../models/Student');
+const CodeforcesData = require('../models/CodeforcesData');
+
+class CodeforcesService {
+  constructor() {
+    this.baseURL = 'https://codeforces.com/api';
+    this.requestDelay = 2100; // 2.1 seconds delay (API limit: 1 request per 2 seconds)
+  }
+
+  async delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async fetchUserInfo(handle) {
+    try {
+      console.log(`🔍 Fetching user info for: ${handle}`);
+      
+      const response = await axios.get(`${this.baseURL}/user.info`, {
+        params: { handles: handle },
+        timeout: 15000
+      });
+      
+      console.log(`📡 API Response:`, response.data);
+      
+      if (response.data.status === 'OK' && response.data.result && response.data.result.length > 0) {
+        const userInfo = response.data.result[0];
+        console.log(`✅ User found: ${userInfo.handle}, Rating: ${userInfo.rating || 'Unrated'}`);
+        return userInfo;
+      } else {
+        throw new Error(`User "${handle}" not found on Codeforces`);
+      }
+    } catch (error) {
+      if (error.response) {
+        console.error(`❌ API Error ${error.response.status}:`, error.response.data);
+        if (error.response.data && error.response.data.comment) {
+          throw new Error(`Codeforces API: ${error.response.data.comment}`);
+        }
+      }
+      console.error(`❌ Error fetching user info for ${handle}:`, error.message);
+      throw new Error(`Failed to fetch data for "${handle}". Please check if the handle exists.`);
+    }
+  }
+
+  async fetchUserRating(handle) {
+    try {
+      console.log(`📈 Fetching rating history for: ${handle}`);
+      await this.delay(this.requestDelay);
+      
+      const response = await axios.get(`${this.baseURL}/user.rating`, {
+        params: { handle: handle },
+        timeout: 15000
+      });
+      
+      if (response.data.status === 'OK') {
+        const contests = response.data.result.map(contest => ({
+          contestId: contest.contestId || 0,
+          contestName: contest.contestName || 'Unknown Contest',
+          handle: handle,
+          rank: contest.rank || 0,
+          ratingUpdateTimeSeconds: contest.ratingUpdateTimeSeconds || 0,
+          oldRating: contest.oldRating || 0,
+          newRating: contest.newRating || 0
+        }));
+        console.log(`✅ Rating history found: ${contests.length} contests`);
+        return contests;
+      } else {
+        console.log(`⚠️ No rating history found for ${handle}`);
+        return [];
+      }
+    } catch (error) {
+      console.error(`❌ Error fetching rating for ${handle}:`, error.message);
+      return [];
+    }
+  }
+
+  async fetchUserSubmissions(handle, count = 50) {
+    try {
+      console.log(`📝 Fetching submissions for: ${handle} (count: ${count})`);
+      await this.delay(this.requestDelay);
+      
+      const response = await axios.get(`${this.baseURL}/user.status`, {
+        params: { 
+          handle: handle,
+          from: 1,
+          count: count
+        },
+        timeout: 20000
+      });
+      
+      if (response.data.status === 'OK') {
+        // Clean and sanitize submission data
+        const submissions = response.data.result.map(sub => ({
+          id: sub.id || 0,
+          contestId: sub.contestId || null,
+          creationTimeSeconds: sub.creationTimeSeconds || 0,
+          relativeTimeSeconds: sub.relativeTimeSeconds || 0,
+          problem: {
+            contestId: sub.problem?.contestId || null,
+            index: sub.problem?.index || '',
+            name: sub.problem?.name || '',
+            type: sub.problem?.type || 'PROGRAMMING',
+            rating: sub.problem?.rating || null,
+            tags: sub.problem?.tags || []
+          },
+          author: {
+            contestId: sub.author?.contestId || null,
+            members: sub.author?.members || [{ handle: handle }],
+            participantType: sub.author?.participantType || 'PRACTICE',
+            ghost: sub.author?.ghost || false,
+            startTimeSeconds: sub.author?.startTimeSeconds || null
+          },
+          programmingLanguage: sub.programmingLanguage || '',
+          verdict: sub.verdict || '',
+          testset: sub.testset || 'TESTS',
+          passedTestCount: sub.passedTestCount || 0,
+          timeConsumedMillis: sub.timeConsumedMillis || 0,
+          memoryConsumedBytes: sub.memoryConsumedBytes || 0
+        }));
+        
+        console.log(`✅ Found ${submissions.length} submissions`);
+        return submissions;
+      } else {
+        console.log(`⚠️ No submissions found for ${handle}`);
+        return [];
+      }
+    } catch (error) {
+      console.error(`❌ Error fetching submissions for ${handle}:`, error.message);
+      return [];
+    }
+  }
+
+  async syncStudentData(studentId, handle) {
+    try {
+      console.log(`🚀 Starting REAL Codeforces sync for student ${studentId} with handle: ${handle}`);
+      
+      // Step 1: Fetch user basic info (required)
+      const userInfo = await this.fetchUserInfo(handle);
+      
+      // Step 2: Fetch rating history (optional)
+      const contests = await this.fetchUserRating(handle);
+      
+      // Step 3: Fetch recent submissions (optional)
+      const submissions = await this.fetchUserSubmissions(handle, 100);
+      
+      // Step 4: Store in database with error handling
+      try {
+        const codeforcesData = await CodeforcesData.findOneAndUpdate(
+          { studentId: studentId },
+          {
+            handle: handle.toLowerCase(),
+            userInfo: userInfo,
+            submissions: submissions,
+            contests: contests,
+            lastSyncTime: new Date()
+          },
+          { 
+            upsert: true, 
+            new: true,
+            runValidators: false // Skip validation to allow flexible data
+          }
+        );
+
+        console.log(`💾 Data stored in database successfully`);
+
+        // Step 5: Update student record
+        await Student.findByIdAndUpdate(studentId, {
+          currentRating: userInfo.rating || 0,
+          maxRating: userInfo.maxRating || 0,
+          lastUpdated: new Date()
+        });
+
+        console.log(`🎉 Successfully synced and STORED data for ${handle}:`);
+        console.log(`   - Current Rating: ${userInfo.rating || 'Unrated'}`);
+        console.log(`   - Max Rating: ${userInfo.maxRating || 'Unrated'}`);
+        console.log(`   - Contests: ${contests.length}`);
+        console.log(`   - Submissions: ${submissions.length}`);
+        
+        return codeforcesData;
+      } catch (dbError) {
+        console.error(`💥 Database error:`, dbError);
+        throw new Error(`Failed to store data in database: ${dbError.message}`);
+      }
+    } catch (error) {
+      console.error(`💥 Failed to sync data for ${handle}:`, error.message);
+      throw error;
+    }
+  }
+
+  async getStudentAnalytics(studentId, days = 30) {
+    try {
+      const codeforcesData = await CodeforcesData.findOne({ studentId });
+      
+      if (!codeforcesData || !codeforcesData.submissions || codeforcesData.submissions.length === 0) {
+        console.log(`No submissions data found for student ${studentId}`);
+        return {
+          totalProblems: 0,
+          avgProblemsPerDay: 0,
+          avgRating: 0,
+          maxDifficulty: 0,
+          ratingBuckets: {},
+          submissions: []
+        };
+      }
+
+      const cutoffTime = Math.floor((Date.now() - (days * 24 * 60 * 60 * 1000)) / 1000);
+      
+      // Filter submissions within the time range and only successful ones
+      const recentSubmissions = codeforcesData.submissions.filter(
+        sub => sub.creationTimeSeconds >= cutoffTime && sub.verdict === 'OK'
+      );
+
+      console.log(`Analytics for ${days} days: ${recentSubmissions.length} successful submissions out of ${codeforcesData.submissions.length} total`);
+
+      // Calculate analytics
+      const totalProblems = recentSubmissions.length;
+      const avgProblemsPerDay = totalProblems / days;
+      
+      const ratings = recentSubmissions
+        .map(sub => sub.problem?.rating)
+        .filter(rating => rating !== undefined && rating !== null);
+      
+      const avgRating = ratings.length > 0 
+        ? Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length)
+        : 0;
+      
+      const maxDifficulty = ratings.length > 0 ? Math.max(...ratings) : 0;
+
+      // Rating distribution
+      const ratingBuckets = {};
+      ratings.forEach(rating => {
+        const bucket = Math.floor(rating / 100) * 100;
+        ratingBuckets[bucket] = (ratingBuckets[bucket] || 0) + 1;
+      });
+
+      return {
+        totalProblems,
+        avgProblemsPerDay: Math.round(avgProblemsPerDay * 100) / 100,
+        avgRating,
+        maxDifficulty,
+        ratingBuckets,
+        submissions: recentSubmissions
+      };
+    } catch (error) {
+      console.error('Error getting student analytics:', error);
+      throw error;
+    }
+  }
+}
+
+module.exports = new CodeforcesService();
+</file>
+
+<file path="backend/src/services/cronService.js">
+const cron = require('node-cron');
+const Settings = require('../models/Settings');
+const codeforcesService = require('./codeforcesService');
+const emailService = require('./emailService');
+
+class CronService {
+  constructor() {
+    this.syncTask = null;
+    this.reminderTask = null;
+  }
+
+  async initializeCronJobs() {
+    try {
+      // Get or create default settings
+      let settings = await Settings.findOne();
+      if (!settings) {
+        settings = new Settings();
+        await settings.save();
+      }
+
+      // Start cron jobs
+      this.startDataSyncCron(settings.cronSchedule);
+      this.startInactivityCheckCron();
+      
+      console.log('Cron jobs initialized successfully');
+    } catch (error) {
+      console.error('Error initializing cron jobs:', error);
+    }
+  }
+
+  startDataSyncCron(schedule = '0 2 * * *') {
+    // Stop existing task if any
+    if (this.syncTask) {
+      this.syncTask.stop();
+    }
+
+    // Validate cron expression
+    if (!cron.validate(schedule)) {
+      console.error('Invalid cron schedule:', schedule);
+      schedule = '0 2 * * *'; // Default to 2 AM daily
+    }
+
+    this.syncTask = cron.schedule(schedule, async () => {
+      console.log('Starting scheduled Codeforces data sync...');
+      try {
+        const results = await codeforcesService.syncAllStudents();
+        
+        // Update last run time
+        await Settings.findOneAndUpdate(
+          {},
+          { lastCronRun: new Date() },
+          { upsert: true }
+        );
+        
+        console.log('Scheduled sync completed:', results);
+      } catch (error) {
+        console.error('Error in scheduled sync:', error);
+      }
+    }, {
+      scheduled: true,
+      timezone: "UTC"
+    });
+
+    console.log(`Data sync cron job scheduled: ${schedule}`);
+  }
+
+  startInactivityCheckCron() {
+    // Stop existing task if any
+    if (this.reminderTask) {
+      this.reminderTask.stop();
+    }
+
+    // Run daily at 9 AM to check for inactive students
+    this.reminderTask = cron.schedule('0 9 * * *', async () => {
+      console.log('Checking for inactive students...');
+      try {
+        const inactiveStudents = await codeforcesService.checkInactiveStudents();
+        
+        if (inactiveStudents.length > 0) {
+          console.log(`Found ${inactiveStudents.length} inactive students`);
+          const results = await emailService.sendBulkInactivityReminders(inactiveStudents);
+          console.log('Inactivity reminders sent:', results);
+        } else {
+          console.log('No inactive students found');
+        }
+      } catch (error) {
+        console.error('Error checking inactive students:', error);
+      }
+    }, {
+      scheduled: true,
+      timezone: "UTC"
+    });
+
+    console.log('Inactivity check cron job scheduled: daily at 9 AM UTC');
+  }
+
+  async updateSyncSchedule(newSchedule) {
+    try {
+      // Validate new schedule
+      if (!cron.validate(newSchedule)) {
+        throw new Error('Invalid cron schedule format');
+      }
+
+      // Update in database
+      await Settings.findOneAndUpdate(
+        {},
+        { cronSchedule: newSchedule },
+        { upsert: true }
+      );
+
+      // Restart cron job with new schedule
+      this.startDataSyncCron(newSchedule);
+      
+      console.log(`Cron schedule updated to: ${newSchedule}`);
+      return true;
+    } catch (error) {
+      console.error('Error updating cron schedule:', error);
+      throw error;
+    }
+  }
+
+  async manualSync() {
+    try {
+      console.log('Starting manual sync...');
+      const results = await codeforcesService.syncAllStudents();
+      
+      // Update last run time
+      await Settings.findOneAndUpdate(
+        {},
+        { lastCronRun: new Date() },
+        { upsert: true }
+      );
+      
+      return results;
+    } catch (error) {
+      console.error('Error in manual sync:', error);
+      throw error;
+    }
+  }
+
+  stopAllJobs() {
+    if (this.syncTask) {
+      this.syncTask.stop();
+      console.log('Data sync cron job stopped');
+    }
+    
+    if (this.reminderTask) {
+      this.reminderTask.stop();
+      console.log('Inactivity check cron job stopped');
+    }
+  }
+}
+
+module.exports = new CronService();
+</file>
+
+<file path="backend/src/services/emailService.js">
+const nodemailer = require('nodemailer');
+const Student = require('../models/Student');
+
+class EmailService {
+  constructor() {
+    this.transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: process.env.EMAIL_PORT,
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+  }
+
+  async sendInactivityReminder(student) {
+    try {
+      const emailTemplate = this.getInactivityEmailTemplate(student);
+      
+      await this.transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: student.email,
+        subject: 'Time to get back to problem solving! 🚀',
+        html: emailTemplate
+      });
+
+      // Update reminder count and timestamp
+      await Student.findByIdAndUpdate(student._id, {
+        $inc: { reminderCount: 1 },
+        lastReminderSent: new Date()
+      });
+
+      console.log(`Inactivity reminder sent to ${student.email}`);
+      return true;
+    } catch (error) {
+      console.error(`Error sending email to ${student.email}:`, error);
+      return false;
+    }
+  }
+
+  getInactivityEmailTemplate(student) {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #007bff; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+          .content { background: #f8f9fa; padding: 20px; border-radius: 0 0 5px 5px; }
+          .button { background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+          .footer { margin-top: 20px; font-size: 12px; color: #666; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2>🚀 Time to Code, ${student.name}!</h2>
+          </div>
+          <div class="content">
+            <p>Hi ${student.name},</p>
+            <p>We noticed you haven't submitted any solutions on Codeforces in the last 7 days. Consistent practice is key to improving your programming skills!</p>
+            
+            <p>Here are some suggestions to get back on track:</p>
+            <ul>
+              <li>Start with easier problems to build momentum</li>
+              <li>Set a goal to solve at least 1 problem per day</li>
+              <li>Join virtual contests to simulate real contest environment</li>
+              <li>Review your past submissions and learn from mistakes</li>
+            </ul>
+            
+            <p>Your Codeforces handle: <strong>${student.codeforcesHandle}</strong></p>
+            <p>Current rating: <strong>${student.currentRating}</strong></p>
+            <p>Max rating: <strong>${student.maxRating}</strong></p>
+            
+            <div style="text-align: center;">
+              <a href="https://codeforces.com/problemset" class="button">Start Solving Problems</a>
+            </div>
+            
+            <p>Keep coding and stay motivated! 💪</p>
+            
+            <p>Best regards,<br>Student Progress Management Team</p>
+          </div>
+          <div class="footer">
+            <p>This is reminder #${student.reminderCount + 1} sent to you.</p>
+            <p>If you want to disable these reminders, please contact your administrator.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  async sendBulkInactivityReminders(inactiveStudents) {
+    const results = {
+      sent: 0,
+      failed: 0,
+      errors: []
+    };
+
+    for (const student of inactiveStudents) {
+      try {
+        const success = await this.sendInactivityReminder(student);
+        if (success) {
+          results.sent++;
+        } else {
+          results.failed++;
+        }
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          student: student.email,
+          error: error.message
+        });
+      }
+      
+      // Small delay between emails
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    console.log(`Email reminder results: ${results.sent} sent, ${results.failed} failed`);
+    return results;
+  }
+}
+
+module.exports = new EmailService();
+</file>
+
+<file path="frontend/.gitignore">
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+</file>
+
+<file path="frontend/eslint.config.js">
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
+
+export default tseslint.config(
+  { ignores: ['dist'] },
+  {
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ['**/*.{ts,tsx}'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.browser,
+    },
+    plugins: {
+      'react-hooks': reactHooks,
+      'react-refresh': reactRefresh,
+    },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      'react-refresh/only-export-components': [
+        'warn',
+        { allowConstantExport: true },
+      ],
+    },
+  },
+)
+</file>
+
+<file path="frontend/index.html">
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vite + React + TS</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+</file>
+
+<file path="frontend/package.json">
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@headlessui/react": "^2.2.4",
+    "axios": "^1.10.0",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.515.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.2",
+    "recharts": "^2.15.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.0",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.4.1",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.25.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^16.0.0",
+    "postcss": "^8.5.5",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.30.1",
+    "vite": "^6.3.5"
+  },
+  "description": "This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.",
+  "main": "eslint.config.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
+</file>
+
+<file path="frontend/postcss.config.js">
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+</file>
+
+<file path="frontend/public/vite.svg">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="31.88" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 257"><defs><linearGradient id="IconifyId1813088fe1fbc01fb466" x1="-.828%" x2="57.636%" y1="7.652%" y2="78.411%"><stop offset="0%" stop-color="#41D1FF"></stop><stop offset="100%" stop-color="#BD34FE"></stop></linearGradient><linearGradient id="IconifyId1813088fe1fbc01fb467" x1="43.376%" x2="50.316%" y1="2.242%" y2="89.03%"><stop offset="0%" stop-color="#FFEA83"></stop><stop offset="8.333%" stop-color="#FFDD35"></stop><stop offset="100%" stop-color="#FFA800"></stop></linearGradient></defs><path fill="url(#IconifyId1813088fe1fbc01fb466)" d="M255.153 37.938L134.897 252.976c-2.483 4.44-8.862 4.466-11.382.048L.875 37.958c-2.746-4.814 1.371-10.646 6.827-9.67l120.385 21.517a6.537 6.537 0 0 0 2.322-.004l117.867-21.483c5.438-.991 9.574 4.796 6.877 9.62Z"></path><path fill="url(#IconifyId1813088fe1fbc01fb467)" d="M185.432.063L96.44 17.501a3.268 3.268 0 0 0-2.634 3.014l-5.474 92.456a3.268 3.268 0 0 0 3.997 3.378l24.777-5.718c2.318-.535 4.413 1.507 3.936 3.838l-7.361 36.047c-.495 2.426 1.782 4.5 4.151 3.78l15.304-4.649c2.372-.72 4.652 1.36 4.15 3.788l-11.698 56.621c-.732 3.542 3.979 5.473 5.943 2.437l1.313-2.028l72.516-144.72c1.215-2.423-.88-5.186-3.54-4.672l-25.505 4.922c-2.396.462-4.435-1.77-3.759-4.114l16.646-57.705c.677-2.35-1.37-4.583-3.769-4.113Z"></path></svg>
+</file>
+
+<file path="frontend/README.md">
+# React + TypeScript + Vite
+
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+
+Currently, two official plugins are available:
+
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default tseslint.config({
+  extends: [
+    // Remove ...tseslint.configs.recommended and replace with this
+    ...tseslint.configs.recommendedTypeChecked,
+    // Alternatively, use this for stricter rules
+    ...tseslint.configs.strictTypeChecked,
+    // Optionally, add this for stylistic rules
+    ...tseslint.configs.stylisticTypeChecked,
+  ],
+  languageOptions: {
+    // other options...
+    parserOptions: {
+      project: ['./tsconfig.node.json', './tsconfig.app.json'],
+      tsconfigRootDir: import.meta.dirname,
+    },
+  },
+})
+```
+
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default tseslint.config({
+  plugins: {
+    // Add the react-x and react-dom plugins
+    'react-x': reactX,
+    'react-dom': reactDom,
+  },
+  rules: {
+    // other rules...
+    // Enable its recommended typescript rules
+    ...reactX.configs['recommended-typescript'].rules,
+    ...reactDom.configs.recommended.rules,
+  },
+})
+```
+</file>
+
+<file path="frontend/src/App.css">
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+</file>
+
+<file path="frontend/src/App.tsx">
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from './contexts/ThemeContext';
+import Navbar from './components/Navbar';
+import StudentTable from './components/StudentTable';
+import StudentProfile from './components/StudentProfile';
+import './index.css';
+
+function App() {
+  return (
+    <ThemeProvider>
+      <Router>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+          <Navbar />
+          
+          <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <Routes>
+              <Route path="/" element={<StudentTable />} />
+              <Route path="/student/:id" element={<StudentProfile />} />
+            </Routes>
+          </main>
+        </div>
+      </Router>
+    </ThemeProvider>
+  );
+}
+
+export default App;
+</file>
+
+<file path="frontend/src/assets/react.svg">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="35.93" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 228"><path fill="#00D8FF" d="M210.483 73.824a171.49 171.49 0 0 0-8.24-2.597c.465-1.9.893-3.777 1.273-5.621c6.238-30.281 2.16-54.676-11.769-62.708c-13.355-7.7-35.196.329-57.254 19.526a171.23 171.23 0 0 0-6.375 5.848a155.866 155.866 0 0 0-4.241-3.917C100.759 3.829 77.587-4.822 63.673 3.233C50.33 10.957 46.379 33.89 51.995 62.588a170.974 170.974 0 0 0 1.892 8.48c-3.28.932-6.445 1.924-9.474 2.98C17.309 83.498 0 98.307 0 113.668c0 15.865 18.582 31.778 46.812 41.427a145.52 145.52 0 0 0 6.921 2.165a167.467 167.467 0 0 0-2.01 9.138c-5.354 28.2-1.173 50.591 12.134 58.266c13.744 7.926 36.812-.22 59.273-19.855a145.567 145.567 0 0 0 5.342-4.923a168.064 168.064 0 0 0 6.92 6.314c21.758 18.722 43.246 26.282 56.54 18.586c13.731-7.949 18.194-32.003 12.4-61.268a145.016 145.016 0 0 0-1.535-6.842c1.62-.48 3.21-.974 4.76-1.488c29.348-9.723 48.443-25.443 48.443-41.52c0-15.417-17.868-30.326-45.517-39.844Zm-6.365 70.984c-1.4.463-2.836.91-4.3 1.345c-3.24-10.257-7.612-21.163-12.963-32.432c5.106-11 9.31-21.767 12.459-31.957c2.619.758 5.16 1.557 7.61 2.4c23.69 8.156 38.14 20.213 38.14 29.504c0 9.896-15.606 22.743-40.946 31.14Zm-10.514 20.834c2.562 12.94 2.927 24.64 1.23 33.787c-1.524 8.219-4.59 13.698-8.382 15.893c-8.067 4.67-25.32-1.4-43.927-17.412a156.726 156.726 0 0 1-6.437-5.87c7.214-7.889 14.423-17.06 21.459-27.246c12.376-1.098 24.068-2.894 34.671-5.345a134.17 134.17 0 0 1 1.386 6.193ZM87.276 214.515c-7.882 2.783-14.16 2.863-17.955.675c-8.075-4.657-11.432-22.636-6.853-46.752a156.923 156.923 0 0 1 1.869-8.499c10.486 2.32 22.093 3.988 34.498 4.994c7.084 9.967 14.501 19.128 21.976 27.15a134.668 134.668 0 0 1-4.877 4.492c-9.933 8.682-19.886 14.842-28.658 17.94ZM50.35 144.747c-12.483-4.267-22.792-9.812-29.858-15.863c-6.35-5.437-9.555-10.836-9.555-15.216c0-9.322 13.897-21.212 37.076-29.293c2.813-.98 5.757-1.905 8.812-2.773c3.204 10.42 7.406 21.315 12.477 32.332c-5.137 11.18-9.399 22.249-12.634 32.792a134.718 134.718 0 0 1-6.318-1.979Zm12.378-84.26c-4.811-24.587-1.616-43.134 6.425-47.789c8.564-4.958 27.502 2.111 47.463 19.835a144.318 144.318 0 0 1 3.841 3.545c-7.438 7.987-14.787 17.08-21.808 26.988c-12.04 1.116-23.565 2.908-34.161 5.309a160.342 160.342 0 0 1-1.76-7.887Zm110.427 27.268a347.8 347.8 0 0 0-7.785-12.803c8.168 1.033 15.994 2.404 23.343 4.08c-2.206 7.072-4.956 14.465-8.193 22.045a381.151 381.151 0 0 0-7.365-13.322Zm-45.032-43.861c5.044 5.465 10.096 11.566 15.065 18.186a322.04 322.04 0 0 0-30.257-.006c4.974-6.559 10.069-12.652 15.192-18.18ZM82.802 87.83a323.167 323.167 0 0 0-7.227 13.238c-3.184-7.553-5.909-14.98-8.134-22.152c7.304-1.634 15.093-2.97 23.209-3.984a321.524 321.524 0 0 0-7.848 12.897Zm8.081 65.352c-8.385-.936-16.291-2.203-23.593-3.793c2.26-7.3 5.045-14.885 8.298-22.6a321.187 321.187 0 0 0 7.257 13.246c2.594 4.48 5.28 8.868 8.038 13.147Zm37.542 31.03c-5.184-5.592-10.354-11.779-15.403-18.433c4.902.192 9.899.29 14.978.29c5.218 0 10.376-.117 15.453-.343c-4.985 6.774-10.018 12.97-15.028 18.486Zm52.198-57.817c3.422 7.8 6.306 15.345 8.596 22.52c-7.422 1.694-15.436 3.058-23.88 4.071a382.417 382.417 0 0 0 7.859-13.026a347.403 347.403 0 0 0 7.425-13.565Zm-16.898 8.101a358.557 358.557 0 0 1-12.281 19.815a329.4 329.4 0 0 1-23.444.823c-7.967 0-15.716-.248-23.178-.732a310.202 310.202 0 0 1-12.513-19.846h.001a307.41 307.41 0 0 1-10.923-20.627a310.278 310.278 0 0 1 10.89-20.637l-.001.001a307.318 307.318 0 0 1 12.413-19.761c7.613-.576 15.42-.876 23.31-.876H128c7.926 0 15.743.303 23.354.883a329.357 329.357 0 0 1 12.335 19.695a358.489 358.489 0 0 1 11.036 20.54a329.472 329.472 0 0 1-11 20.722Zm22.56-122.124c8.572 4.944 11.906 24.881 6.52 51.026c-.344 1.668-.73 3.367-1.15 5.09c-10.622-2.452-22.155-4.275-34.23-5.408c-7.034-10.017-14.323-19.124-21.64-27.008a160.789 160.789 0 0 1 5.888-5.4c18.9-16.447 36.564-22.941 44.612-18.3ZM128 90.808c12.625 0 22.86 10.235 22.86 22.86s-10.235 22.86-22.86 22.86s-22.86-10.235-22.86-22.86s10.235-22.86 22.86-22.86Z"></path></svg>
+</file>
+
+<file path="frontend/src/components/ContestHistory.tsx">
+import React, { useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { format } from 'date-fns';
+import type { CodeforcesContest, FilterPeriod } from '../types';
+
+interface ContestHistoryProps {
+    contests: CodeforcesContest[];
+    period: FilterPeriod;
+}
+
+const ContestHistory: React.FC<ContestHistoryProps> = ({ contests, period }) => {
+    const filteredContests = useMemo(() => {
+        if (!contests || contests.length === 0) {
+            console.log('No contests data available');
+            return [];
+        }
+
+        const cutoffTime = Date.now() - (period * 24 * 60 * 60 * 1000);
+        const filtered = contests
+            .filter(contest => contest.ratingUpdateTimeSeconds * 1000 >= cutoffTime)
+            .sort((a, b) => a.ratingUpdateTimeSeconds - b.ratingUpdateTimeSeconds);
+
+        console.log(`Filtered contests: ${filtered.length} out of ${contests.length}`);
+        return filtered;
+    }, [contests, period]);
+
+
+    if (!contests || contests.length === 0) {
+        return (
+            <div className="text-center py-8">
+                <p className="text-gray-500 dark:text-gray-400">
+                    No contest participation data available. The user might not have participated in any rated contests yet.
+                </p>
+            </div>
+        );
+    }
+
+    if (filteredContests.length === 0) {
+        return (
+            <div className="text-center py-8">
+                <p className="text-gray-500 dark:text-gray-400">
+                    No contest participation in the last {period} days.
+                </p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                    Total contests participated: {contests.length}
+                </p>
+            </div>
+        );
+    }
+
+    const chartData = useMemo(() => {
+        return filteredContests.map(contest => ({
+            date: format(new Date(contest.ratingUpdateTimeSeconds * 1000), 'MMM dd'),
+            rating: contest.newRating,
+            contest: contest.contestName,
+            rank: contest.rank,
+            change: contest.newRating - contest.oldRating
+        }));
+    }, [filteredContests]);
+
+    const getRatingColor = (rating: number) => {
+        if (rating < 1200) return '#6B7280';
+        if (rating < 1400) return '#059669';
+        if (rating < 1600) return '#0891B2';
+        if (rating < 1900) return '#2563EB';
+        if (rating < 2100) return '#7C3AED';
+        if (rating < 2300) return '#CA8A04';
+        if (rating < 2400) return '#EA580C';
+        return '#DC2626';
+    };
+
+    if (filteredContests.length === 0) {
+        return (
+            <div className="text-center py-8">
+                <p className="text-gray-500 dark:text-gray-400">
+                    No contest participation in the last {period} days.
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            {/* Rating Graph */}
+            <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                        <XAxis
+                            dataKey="date"
+                            className="text-xs"
+                            tick={{ fontSize: 12 }}
+                        />
+                        <YAxis
+                            className="text-xs"
+                            tick={{ fontSize: 12 }}
+                        />
+                        <Tooltip
+                            content={({ active, payload, label }) => {
+                                if (active && payload && payload.length) {
+                                    const data = payload[0].payload;
+                                    return (
+                                        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                                            <p className="font-medium text-gray-900 dark:text-white">{data.contest}</p>
+                                            <p className="text-sm text-gray-600 dark:text-gray-300">Date: {label}</p>
+                                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                                                Rating: <span style={{ color: getRatingColor(data.rating) }}>{data.rating}</span>
+                                            </p>
+                                            <p className="text-sm text-gray-600 dark:text-gray-300">Rank: {data.rank}</p>
+                                            <p className={`text-sm ${data.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                Change: {data.change >= 0 ? '+' : ''}{data.change}
+                                            </p>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            }}
+                        />
+                        <Line
+                            type="monotone"
+                            dataKey="rating"
+                            stroke="#2563EB"
+                            strokeWidth={2}
+                            dot={{ fill: '#2563EB', strokeWidth: 2, r: 4 }}
+                            activeDot={{ r: 6, stroke: '#2563EB', strokeWidth: 2 }}
+                        />
+                    </LineChart>
+                </ResponsiveContainer>
+            </div>
+
+            {/* Contest List */}
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                Contest
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                Date
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                Rank
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                Rating Change
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                New Rating
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                        {filteredContests.map((contest, index) => {
+                            const ratingChange = contest.newRating - contest.oldRating;
+                            return (
+                                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <td className="px-4 py-4">
+                                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                            {contest.contestName}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        <div className="text-sm text-gray-600 dark:text-gray-300">
+                                            {format(new Date(contest.ratingUpdateTimeSeconds * 1000), 'MMM d, yyyy')}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        <div className="text-sm text-gray-900 dark:text-white">
+                                            {contest.rank}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        <div className={`text-sm font-medium ${ratingChange >= 0 ? 'text-green-600' : 'text-red-600'
+                                            }`}>
+                                            {ratingChange >= 0 ? '+' : ''}{ratingChange}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-4">
+                                        <div
+                                            className="text-sm font-medium"
+                                            style={{ color: getRatingColor(contest.newRating) }}
+                                        >
+                                            {contest.newRating}
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+export default ContestHistory;
+</file>
+
+<file path="frontend/src/components/Navbar.tsx">
+import React from 'react';
+import { Code, Users } from 'lucide-react';
+import ThemeToggle from './ThemeToggle';
+
+const Navbar: React.FC = () => {
+  return (
+    <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo and title */}
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-lg">
+              <Code className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                Student Progress
+              </h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Management System
+              </p>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="hidden md:flex items-center space-x-6">
+            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
+              <Users size={16} />
+              <span>Tracking Codeforces Progress</span>
+            </div>
+          </div>
+
+          {/* Theme toggle */}
+          <div className="flex items-center">
+            <ThemeToggle />
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+export default Navbar;
+</file>
+
+<file path="frontend/src/components/ProblemSolvingData.tsx">
+import React, { useState, useEffect } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { studentApi } from '../services/api';
+import type { FilterPeriod, StudentAnalytics } from '../types';
+import Card from './ui/Card';
+import SubmissionHeatmap from './SubmissionHeatmap';
+
+interface ProblemSolvingDataProps {
+  studentId: string;
+  period: FilterPeriod;
+}
+
+const ProblemSolvingData: React.FC<ProblemSolvingDataProps> = ({ studentId, period }) => {
+  const [analytics, setAnalytics] = useState<StudentAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [studentId, period]);
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      const response = await studentApi.getCodeforcesData(studentId, period);
+      setAnalytics(response.analytics);
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!analytics) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-500 dark:text-gray-400">
+          No data available for the selected period.
+        </p>
+      </div>
+    );
+  }
+
+  // Prepare data for rating distribution chart
+  const ratingBucketData = Object.entries(analytics.ratingBuckets)
+    .map(([rating, count]) => ({
+      rating: `${rating}-${parseInt(rating) + 99}`,
+      count,
+      ratingValue: parseInt(rating)
+    }))
+    .sort((a, b) => a.ratingValue - b.ratingValue);
+
+  const StatCard: React.FC<{ title: string; value: string | number; subtitle?: string }> = ({
+    title,
+    value,
+    subtitle
+  }) => (
+    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+        {title}
+      </h4>
+      <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
+        {value}
+      </p>
+      {subtitle && (
+        <p className="text-sm text-gray-600 dark:text-gray-300">{subtitle}</p>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Problems Solved"
+          value={analytics.totalProblems}
+        />
+        <StatCard
+          title="Average Problems/Day"
+          value={analytics.avgProblemsPerDay}
+        />
+        <StatCard
+          title="Average Rating"
+          value={analytics.avgRating || 'N/A'}
+        />
+        <StatCard
+          title="Hardest Problem"
+          value={analytics.maxDifficulty || 'N/A'}
+          subtitle="Rating"
+        />
+      </div>
+
+      {/* Rating Distribution Chart */}
+      {ratingBucketData.length > 0 && (
+        <Card>
+          <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+            Problems Solved by Rating Range
+          </h4>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={ratingBucketData}>
+                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                <XAxis 
+                  dataKey="rating" 
+                  className="text-xs"
+                  tick={{ fontSize: 12 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={70}
+                />
+                <YAxis 
+                  className="text-xs"
+                  tick={{ fontSize: 12 }}
+                />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            Rating Range: {label}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                            Problems: {payload[0].value}
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar 
+                  dataKey="count" 
+                  fill="#3B82F6"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      )}
+
+      {/* Submission Heatmap */}
+      <Card>
+        <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+          Submission Activity Heatmap
+        </h4>
+        <SubmissionHeatmap submissions={analytics.submissions} period={period} />
+      </Card>
+
+      {/* Recent Submissions */}
+      {analytics.submissions.length > 0 && (
+        <Card>
+          <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+            Recent Successful Submissions
+          </h4>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Problem
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Rating
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Language
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Time
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Date
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                {analytics.submissions
+                  .slice(0, 10) // Show only recent 10 submissions
+                  .map((submission, index) => (
+                    <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="px-4 py-4">
+                        <div className="text-sm">
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {submission.problem.name}
+                          </p>
+                          <p className="text-gray-500 dark:text-gray-400">
+                            {submission.problem.contestId}{submission.problem.index}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className={`text-sm font-medium ${
+                          submission.problem.rating 
+                            ? submission.problem.rating < 1200 ? 'text-gray-600'
+                            : submission.problem.rating < 1400 ? 'text-green-600'
+                            : submission.problem.rating < 1600 ? 'text-cyan-600'
+                            : submission.problem.rating < 1900 ? 'text-blue-600'
+                            : submission.problem.rating < 2100 ? 'text-purple-600'
+                            : submission.problem.rating < 2300 ? 'text-yellow-600'
+                            : submission.problem.rating < 2400 ? 'text-orange-600'
+                            : 'text-red-600'
+                            : 'text-gray-500'
+                        }`}>
+                          {submission.problem.rating || 'Unrated'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                          {submission.programmingLanguage}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                          {Math.round(submission.timeConsumedMillis / 1000)}s
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                          {new Date(submission.creationTimeSeconds * 1000).toLocaleDateString()}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+export default ProblemSolvingData;
+</file>
+
+<file path="frontend/src/components/StudentForm.tsx">
+import React, { useState } from 'react';
+import type { Student } from '../types';
+import Button from './ui/Button';
+import Input from './ui/Input';
+
+interface StudentFormProps {
+  student?: Student;
+  onSubmit: (data: any) => Promise<void>;
+  onCancel: () => void;
+}
+
+const StudentForm: React.FC<StudentFormProps> = ({
+  student,
+  onSubmit,
+  onCancel
+}) => {
+  const [formData, setFormData] = useState({
+    name: student?.name || '',
+    email: student?.email || '',
+    phoneNumber: student?.phoneNumber || '',
+    codeforcesHandle: student?.codeforcesHandle || '',
+    emailRemindersEnabled: student?.emailRemindersEnabled ?? true,
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Email is invalid';
+    }
+
+    if (!formData.phoneNumber.trim()) {
+      newErrors.phoneNumber = 'Phone number is required';
+    }
+
+    if (!formData.codeforcesHandle.trim()) {
+      newErrors.codeforcesHandle = 'Codeforces handle is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await onSubmit(formData);
+    } catch (error: any) {
+      if (error.response?.data?.message) {
+        setErrors({ general: error.response.data.message });
+      } else {
+        setErrors({ general: 'An error occurred. Please try again.' });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (field: string, value: string | boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // Clear error for this field
+    if (errors[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }));
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {errors.general && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+          <p className="text-sm text-red-600 dark:text-red-400">{errors.general}</p>
+        </div>
+      )}
+
+      <Input
+        label="Full Name"
+        required
+        value={formData.name}
+        onChange={(e) => handleChange('name', e.target.value)}
+        error={errors.name}
+        placeholder="Enter student's full name"
+      />
+
+      <Input
+        label="Email Address"
+        type="email"
+        required
+        value={formData.email}
+        onChange={(e) => handleChange('email', e.target.value)}
+        error={errors.email}
+        placeholder="student@example.com"
+      />
+
+      <Input
+        label="Phone Number"
+        type="tel"
+        required
+        value={formData.phoneNumber}
+        onChange={(e) => handleChange('phoneNumber', e.target.value)}
+        error={errors.phoneNumber}
+        placeholder="+1 (555) 123-4567"
+      />
+
+      <Input
+        label="Codeforces Handle"
+        required
+        value={formData.codeforcesHandle}
+        onChange={(e) => handleChange('codeforcesHandle', e.target.value)}
+        error={errors.codeforcesHandle}
+        placeholder="codeforces_username"
+      />
+
+      <div className="flex items-center space-x-2">
+        <input
+          type="checkbox"
+          id="emailReminders"
+          checked={formData.emailRemindersEnabled}
+          onChange={(e) => handleChange('emailRemindersEnabled', e.target.checked)}
+          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+        />
+        <label htmlFor="emailReminders" className="text-sm text-gray-700 dark:text-gray-300">
+          Enable email reminders for inactivity
+        </label>
+      </div>
+
+      <div className="flex justify-end space-x-3 pt-4">
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onCancel}
+          disabled={loading}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          disabled={loading}
+        >
+          {loading ? 'Saving...' : (student ? 'Update Student' : 'Add Student')}
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+export default StudentForm;
+</file>
+
+<file path="frontend/src/components/StudentProfile.tsx">
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, RefreshCw, Mail, MailX, ExternalLink } from 'lucide-react';
+import { format } from 'date-fns';
+import { studentApi } from '../services/api';
+import type { StudentCodeforcesResponse, FilterPeriod } from '../types';
+import Button from './ui/Button';
+import Card from './ui/Card';
+import ContestHistory from './ContestHistory';
+import ProblemSolvingData from './ProblemSolvingData';
+
+const StudentProfile: React.FC = () => {
+    const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
+    const [data, setData] = useState<StudentCodeforcesResponse | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [syncing, setSyncing] = useState(false);
+    const [contestPeriod, setContestPeriod] = useState<FilterPeriod>(90);
+    const [problemPeriod, setProblemPeriod] = useState<FilterPeriod>(30);
+
+    useEffect(() => {
+        if (id) {
+            fetchStudentData();
+        }
+    }, [id]);
+
+    const fetchStudentData = async () => {
+        if (!id) return;
+
+        try {
+            setLoading(true);
+            const response = await studentApi.getCodeforcesData(id);
+            setData(response);
+        } catch (error) {
+            console.error('Error fetching student data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSync = async () => {
+        if (!id) return;
+
+        try {
+            setSyncing(true);
+            await studentApi.syncData(id);
+            await fetchStudentData();
+        } catch (error) {
+            console.error('Error syncing data:', error);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    const getRatingColor = (rating: number) => {
+        if (rating === 0) return 'text-gray-500';
+        if (rating < 1200) return 'text-gray-600';
+        if (rating < 1400) return 'text-green-600';
+        if (rating < 1600) return 'text-cyan-600';
+        if (rating < 1900) return 'text-blue-600';
+        if (rating < 2100) return 'text-purple-600';
+        if (rating < 2300) return 'text-yellow-600';
+        if (rating < 2400) return 'text-orange-600';
+        return 'text-red-600';
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+        );
+    }
+
+    if (!data) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-gray-600 dark:text-gray-400">
+                    Student data not found or failed to load.
+                </p>
+                <Button onClick={() => navigate('/')} className="mt-4">
+                    Back to Students
+                </Button>
+            </div>
+        );
+    }
+
+    const { student, codeforcesData } = data;
+
+    return (
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => navigate('/')}
+                    >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back
+                    </Button>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {student.name}
+                        </h1>
+                        <p className="text-gray-600 dark:text-gray-400">
+                            Codeforces Progress Report
+                        </p>
+                    </div>
+                </div>
+
+                <Button onClick={handleSync} disabled={syncing}>
+                    {syncing ? (
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    Sync Data
+                </Button>
+            </div>
+
+            {/* Student Info */}
+            <Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div>
+                        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Contact Information
+                        </h3>
+                        <div className="mt-2 space-y-1">
+                            <p className="text-sm text-gray-900 dark:text-white">{student.email}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">{student.phoneNumber}</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Codeforces Handle
+                        </h3>
+                        <div className="mt-2 flex items-center space-x-2">
+                            <p className="text-sm font-mono text-gray-900 dark:text-white">
+                                {student.codeforcesHandle}
+                            </p>
+                            <a
+                                href={`https://codeforces.com/profile/${student.codeforcesHandle}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                            >
+                                <ExternalLink className="w-4 h-4" />
+                            </a>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Rating
+                        </h3>
+                        <div className="mt-2">
+                            <p className={`text-lg font-bold ${getRatingColor(student.currentRating)}`}>
+                                {student.currentRating || 'Unrated'}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                                Max: {student.maxRating || 'N/A'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Status
+                        </h3>
+                        <div className="mt-2 space-y-1">
+                            <div className="flex items-center space-x-2">
+                                {student.emailRemindersEnabled ? (
+                                    <Mail className="w-4 h-4 text-green-500" />
+                                ) : (
+                                    <MailX className="w-4 h-4 text-gray-400" />
+                                )}
+                                <span className="text-sm text-gray-600 dark:text-gray-300">
+                                    {student.emailRemindersEnabled ? 'Reminders On' : 'Reminders Off'}
+                                </span>
+                            </div>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                                {student.reminderCount} reminders sent
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                                Updated: {format(new Date(student.lastUpdated), 'MMM d, yyyy HH:mm')}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </Card>
+
+            {/* Contest History */}
+            <Card>
+                <div className="mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            Contest History
+                        </h2>
+                        <div className="flex space-x-2">
+                            {[30, 90, 365].map((days) => (
+                                <Button
+                                    key={days}
+                                    size="sm"
+                                    variant={contestPeriod === days ? 'primary' : 'secondary'}
+                                    onClick={() => setContestPeriod(days as FilterPeriod)}
+                                >
+                                    {days} days
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                    {/* Debug info */}
+                    {process.env.NODE_ENV === 'development' && (
+                        <div className="mb-4 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+                            <p>Debug: Contests available: {codeforcesData.contests?.length || 0}</p>
+                            <p>Debug: Data last synced: {new Date(codeforcesData.lastSyncTime).toLocaleString()}</p>
+                        </div>
+                    )}
+                    <ContestHistory
+                        contests={codeforcesData.contests || []}
+                        period={contestPeriod}
+                    />
+                </div>
+            </Card>
+
+            {/* Problem Solving Data */}
+            <Card>
+                <div className="mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            Problem Solving Analytics
+                        </h2>
+                        <div className="flex space-x-2">
+                            {[7, 30, 90].map((days) => (
+                                <Button
+                                    key={days}
+                                    size="sm"
+                                    variant={problemPeriod === days ? 'primary' : 'secondary'}
+                                    onClick={() => setProblemPeriod(days as FilterPeriod)}
+                                >
+                                    {days} days
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                    <ProblemSolvingData
+                        studentId={student._id}
+                        period={problemPeriod}
+                    />
+                </div>
+            </Card>
+        </div>
+    );
+};
+
+export default StudentProfile;
+</file>
+
+<file path="frontend/src/components/StudentTable.tsx">
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Download, 
+  RefreshCw, 
+  Eye, 
+  Mail,
+  MailX,
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { studentApi } from '../services/api';
+import type { Student } from '../types';
+import Button from './ui/Button';
+import Input from './ui/Input';
+import Modal from './ui/Modal';
+import Card from './ui/Card';
+import StudentForm from './StudentForm';
+
+const StudentTable: React.FC = () => {
+  const navigate = useNavigate();
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [deleteStudent, setDeleteStudent] = useState<Student | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      const data = await studentApi.getAll();
+      setStudents(data);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddStudent = async (studentData: any) => {
+    try {
+      await studentApi.create(studentData);
+      setShowAddModal(false);
+      fetchStudents();
+    } catch (error) {
+      console.error('Error creating student:', error);
+      throw error;
+    }
+  };
+
+  const handleEditStudent = async (studentData: any) => {
+    if (!editingStudent) return;
+    
+    try {
+      await studentApi.update(editingStudent._id, studentData);
+      setEditingStudent(null);
+      fetchStudents();
+    } catch (error) {
+      console.error('Error updating student:', error);
+      throw error;
+    }
+  };
+
+  const handleDeleteStudent = async () => {
+    if (!deleteStudent) return;
+    
+    try {
+      await studentApi.delete(deleteStudent._id);
+      setDeleteStudent(null);
+      fetchStudents();
+    } catch (error) {
+      console.error('Error deleting student:', error);
+    }
+  };
+
+  const handleSyncStudent = async (studentId: string) => {
+    try {
+      setSyncingId(studentId);
+      await studentApi.syncData(studentId);
+      fetchStudents();
+    } catch (error) {
+      console.error('Error syncing student:', error);
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      const blob = await studentApi.exportCSV();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `students_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+    }
+  };
+
+  const filteredStudents = students.filter(student =>
+    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    student.codeforcesHandle.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const getRatingColor = (rating: number) => {
+    if (rating === 0) return 'text-gray-500';
+    if (rating < 1200) return 'text-gray-600';
+    if (rating < 1400) return 'text-green-600';
+    if (rating < 1600) return 'text-cyan-600';
+    if (rating < 1900) return 'text-blue-600';
+    if (rating < 2100) return 'text-purple-600';
+    if (rating < 2300) return 'text-yellow-600';
+    if (rating < 2400) return 'text-orange-600';
+    return 'text-red-600';
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Students
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            Manage student Codeforces progress tracking
+          </p>
+        </div>
+        
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={handleExportCSV} variant="secondary" size="sm">
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </Button>
+          <Button onClick={() => setShowAddModal(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Student
+          </Button>
+        </div>
+      </div>
+
+      {/* Search and Filters */}
+      <Card>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <Input
+              placeholder="Search students..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full"
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* Students Table */}
+      <Card padding={false}>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Student
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Contact
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Codeforces
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Rating
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Last Updated
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Reminders
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+              {filteredStudents.map((student) => (
+                <tr key={student._id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {student.name}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900 dark:text-white">
+                      {student.email}
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      {student.phoneNumber}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-mono text-gray-900 dark:text-white">
+                      {student.codeforcesHandle}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className={`text-sm font-semibold ${getRatingColor(student.currentRating)}`}>
+                      {student.currentRating || 'Unrated'}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Max: {student.maxRating || 'N/A'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900 dark:text-white">
+                      {format(new Date(student.lastUpdated), 'MMM d, yyyy')}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {format(new Date(student.lastUpdated), 'HH:mm')}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center space-x-2">
+                      {student.emailRemindersEnabled ? (
+                        <Mail className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <MailX className="w-4 h-4 text-gray-400" />
+                      )}
+                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                        {student.reminderCount}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex items-center justify-end space-x-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => navigate(`/student/${student._id}`)}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleSyncStudent(student._id)}
+                        disabled={syncingId === student._id}
+                      >
+                        {syncingId === student._id ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-4 h-4" />
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setEditingStudent(student)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => setDeleteStudent(student)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          
+          {filteredStudents.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500 dark:text-gray-400">
+                {searchTerm ? 'No students found matching your search.' : 'No students found. Add your first student!'}
+              </p>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Add Student Modal */}
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add New Student"
+        size="md"
+      >
+        <StudentForm
+          onSubmit={handleAddStudent}
+          onCancel={() => setShowAddModal(false)}
+        />
+      </Modal>
+
+      {/* Edit Student Modal */}
+      <Modal
+        isOpen={!!editingStudent}
+        onClose={() => setEditingStudent(null)}
+        title="Edit Student"
+        size="md"
+      >
+        {editingStudent && (
+          <StudentForm
+            student={editingStudent}
+            onSubmit={handleEditStudent}
+            onCancel={() => setEditingStudent(null)}
+          />
+        )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!deleteStudent}
+        onClose={() => setDeleteStudent(null)}
+        title="Delete Student"
+        size="sm"
+      >
+        {deleteStudent && (
+          <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-300">
+              Are you sure you want to delete <strong>{deleteStudent.name}</strong>? 
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="secondary"
+                onClick={() => setDeleteStudent(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleDeleteStudent}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+};
+
+export default StudentTable;
+</file>
+
+<file path="frontend/src/components/SubmissionHeatmap.tsx">
+import React, { useMemo } from 'react';
+import { format, startOfDay, eachDayOfInterval, subDays } from 'date-fns';
+import type { CodeforcesSubmission, FilterPeriod } from '../types';
+
+interface SubmissionHeatmapProps {
+  submissions: CodeforcesSubmission[];
+  period: FilterPeriod;
+}
+
+const SubmissionHeatmap: React.FC<SubmissionHeatmapProps> = ({ submissions, period }) => {
+  const heatmapData = useMemo(() => {
+    const endDate = new Date();
+    const startDate = subDays(endDate, period - 1);
+    
+    // Create array of all days in the period
+    const days = eachDayOfInterval({ start: startDate, end: endDate });
+    
+    // Count submissions per day
+    const submissionCounts = new Map<string, number>();
+    
+    submissions.forEach(submission => {
+      const date = startOfDay(new Date(submission.creationTimeSeconds * 1000));
+      const dateKey = format(date, 'yyyy-MM-dd');
+      submissionCounts.set(dateKey, (submissionCounts.get(dateKey) || 0) + 1);
+    });
+    
+    // Create heatmap data
+    return days.map(day => {
+      const dateKey = format(day, 'yyyy-MM-dd');
+      const count = submissionCounts.get(dateKey) || 0;
+      return {
+        date: day,
+        count,
+        dateString: dateKey,
+        displayDate: format(day, 'MMM d')
+      };
+    });
+  }, [submissions, period]);
+
+  const maxCount = Math.max(...heatmapData.map(d => d.count), 1);
+
+  const getIntensityColor = (count: number) => {
+    if (count === 0) return 'bg-gray-100 dark:bg-gray-800';
+    const intensity = count / maxCount;
+    
+    if (intensity <= 0.25) return 'bg-blue-200 dark:bg-blue-900';
+    if (intensity <= 0.5) return 'bg-blue-400 dark:bg-blue-700';
+    if (intensity <= 0.75) return 'bg-blue-600 dark:bg-blue-500';
+    return 'bg-blue-800 dark:bg-blue-300';
+  };
+
+  const getGridCols = () => {
+    if (period <= 7) return 'grid-cols-7';
+    if (period <= 30) return 'grid-cols-10';
+    return 'grid-cols-15';
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Legend */}
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-gray-600 dark:text-gray-400">Less</span>
+        <div className="flex space-x-1">
+          <div className="w-3 h-3 rounded-sm bg-gray-100 dark:bg-gray-800"></div>
+          <div className="w-3 h-3 rounded-sm bg-blue-200 dark:bg-blue-900"></div>
+          <div className="w-3 h-3 rounded-sm bg-blue-400 dark:bg-blue-700"></div>
+          <div className="w-3 h-3 rounded-sm bg-blue-600 dark:bg-blue-500"></div>
+          <div className="w-3 h-3 rounded-sm bg-blue-800 dark:bg-blue-300"></div>
+        </div>
+        <span className="text-gray-600 dark:text-gray-400">More</span>
+      </div>
+
+      {/* Heatmap Grid */}
+      <div className={`grid ${getGridCols()} gap-1`}>
+        {heatmapData.map((day, index) => (
+          <div
+            key={index}
+            className={`w-4 h-4 rounded-sm ${getIntensityColor(day.count)} tooltip-container relative`}
+            title={`${day.displayDate}: ${day.count} submission${day.count !== 1 ? 's' : ''}`}
+          >
+            {/* Tooltip */}
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-10 group-hover:opacity-100">
+              {day.displayDate}: {day.count} submission{day.count !== 1 ? 's' : ''}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Stats */}
+      <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+        <span>
+          Total submissions: {submissions.length}
+        </span>
+        <span>
+          Avg per day: {(submissions.length / period).toFixed(1)}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+export default SubmissionHeatmap;
+</file>
+
+<file path="frontend/src/components/ThemeToggle.tsx">
+import React from 'react';
+import { Sun, Moon } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
+
+const ThemeToggle: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+      aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+    >
+      {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+    </button>
+  );
+};
+
+export default ThemeToggle;
+</file>
+
+<file path="frontend/src/components/ui/Button.tsx">
+import React from 'react';
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'danger' | 'success';
+  size?: 'sm' | 'md' | 'lg';
+  children: React.ReactNode;
+}
+
+const Button: React.FC<ButtonProps> = ({
+  variant = 'primary',
+  size = 'md',
+  children,
+  className = '',
+  ...props
+}) => {
+  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+  
+  const variantClasses = {
+    primary: 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500',
+    secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-900 focus:ring-gray-500 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600',
+    danger: 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500',
+    success: 'bg-green-600 hover:bg-green-700 text-white focus:ring-green-500',
+  };
+  
+  const sizeClasses = {
+    sm: 'px-3 py-1.5 text-sm',
+    md: 'px-4 py-2 text-sm',
+    lg: 'px-6 py-3 text-base',
+  };
+
+  return (
+    <button
+      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+};
+
+export default Button;
+</file>
+
+<file path="frontend/src/components/ui/Card.tsx">
+import React from 'react';
+
+interface CardProps {
+  children: React.ReactNode;
+  className?: string;
+  padding?: boolean;
+}
+
+const Card: React.FC<CardProps> = ({ 
+  children, 
+  className = '', 
+  padding = true 
+}) => {
+  return (
+    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 ${padding ? 'p-6' : ''} ${className}`}>
+      {children}
+    </div>
+  );
+};
+
+export default Card;
+</file>
+
+<file path="frontend/src/components/ui/Input.tsx">
+import React from 'react';
+
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+  required?: boolean;
+}
+
+const Input: React.FC<InputProps> = ({
+  label,
+  error,
+  required,
+  className = '',
+  ...props
+}) => {
+  return (
+    <div className="w-full">
+      {label && (
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+      )}
+      <input
+        className={`w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 ${
+          error ? 'border-red-500 focus:ring-red-500' : ''
+        } ${className}`}
+        {...props}
+      />
+      {error && (
+        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
+      )}
+    </div>
+  );
+};
+
+export default Input;
+</file>
+
+<file path="frontend/src/components/ui/Modal.tsx">
+import React from 'react';
+import { X } from 'lucide-react';
+
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+}
+
+const Modal: React.FC<ModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = 'md'
+}) => {
+  const sizeClasses = {
+    sm: 'max-w-md',
+    md: 'max-w-lg',
+    lg: 'max-w-2xl',
+    xl: 'max-w-4xl',
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        {/* Background overlay */}
+        <div
+          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+          onClick={onClose}
+        />
+
+        {/* Modal panel */}
+        <div className={`inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle w-full ${sizeClasses[size]}`}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+              {title}
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="px-6 py-4">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Modal;
+</file>
+
+<file path="frontend/src/contexts/ThemeContext.tsx">
+import React, { createContext, useContext, useEffect, useState } from 'react';
+
+type Theme = 'light' | 'dark';
+
+interface ThemeContextType {
+  theme: Theme;
+  toggleTheme: () => void;
+}
+
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+export const useTheme = () => {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+};
+
+interface ThemeProviderProps {
+  children: React.ReactNode;
+}
+
+export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem('theme');
+    return (saved as Theme) || 'light';
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+};
+</file>
+
+<file path="frontend/src/hooks/useCodeforces.ts">
+import { useState, useCallback } from 'react';
+import { studentApi } from '../services/api';
+import type { StudentCodeforcesResponse } from '../types';
+
+export const useCodeforces = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const getStudentData = useCallback(async (studentId: string, days?: number): Promise<StudentCodeforcesResponse | null> => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await studentApi.getCodeforcesData(studentId, days);
+      return data;
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch Codeforces data');
+      console.error('Error fetching Codeforces data:', err);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const syncStudentData = useCallback(async (studentId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await studentApi.syncData(studentId);
+    } catch (err: any) {
+      setError(err.message || 'Failed to sync student data');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return {
+    loading,
+    error,
+    getStudentData,
+    syncStudentData
+  };
+};
+</file>
+
+<file path="frontend/src/hooks/useStudents.ts">
+import { useState, useEffect } from 'react';
+import { studentApi } from '../services/api';
+import type { Student } from '../types';
+
+export const useStudents = () => {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await studentApi.getAll();
+      setStudents(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch students');
+      console.error('Error fetching students:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addStudent = async (studentData: any) => {
+    try {
+      const newStudent = await studentApi.create(studentData);
+      setStudents(prev => [newStudent, ...prev]);
+      return newStudent;
+    } catch (err: any) {
+      setError(err.message || 'Failed to add student');
+      throw err;
+    }
+  };
+
+  const updateStudent = async (id: string, studentData: any) => {
+    try {
+      const updatedStudent = await studentApi.update(id, studentData);
+      setStudents(prev => 
+        prev.map(student => 
+          student._id === id ? updatedStudent : student
+        )
+      );
+      return updatedStudent;
+    } catch (err: any) {
+      setError(err.message || 'Failed to update student');
+      throw err;
+    }
+  };
+
+  const deleteStudent = async (id: string) => {
+    try {
+      await studentApi.delete(id);
+      setStudents(prev => prev.filter(student => student._id !== id));
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete student');
+      throw err;
+    }
+  };
+
+  const syncStudent = async (id: string) => {
+    try {
+      await studentApi.syncData(id);
+      await fetchStudents(); // Refresh the list
+    } catch (err: any) {
+      setError(err.message || 'Failed to sync student data');
+      throw err;
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  return {
+    students,
+    loading,
+    error,
+    fetchStudents,
+    addStudent,
+    updateStudent,
+    deleteStudent,
+    syncStudent
+  };
+};
+</file>
+
+<file path="frontend/src/index.css">
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply antialiased;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-900 focus:ring-gray-500 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600;
+  }
+  
+  .card {
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700;
+  }
+  
+  .input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-700 rounded;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-500 rounded hover:bg-gray-400 dark:hover:bg-gray-400;
+}
+
+/* Loading animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Smooth transitions */
+* {
+  @apply transition-colors duration-200;
+}
+
+/* Focus styles */
+.focus-visible {
+  @apply outline-none ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+</file>
+
+<file path="frontend/src/main.tsx">
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.tsx'
+import './index.css'
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+</file>
+
+<file path="frontend/src/services/api.ts">
+import axios from 'axios';
+import type { Student, StudentCodeforcesResponse, ApiResponse } from '../types';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Request interceptor
+api.interceptors.request.use(
+  (config) => {
+    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`);
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    console.error('API Error:', error.response?.data || error.message);
+    return Promise.reject(error);
+  }
+);
+
+export const studentApi = {
+  // Get all students
+  getAll: async (): Promise<Student[]> => {
+    const response = await api.get('/students');
+    return response.data;
+  },
+
+  // Get student by ID
+  getById: async (id: string): Promise<Student> => {
+    const response = await api.get(`/students/${id}`);
+    return response.data;
+  },
+
+  // Create new student
+  create: async (studentData: Omit<Student, '_id' | 'createdAt' | 'updatedAt' | 'currentRating' | 'maxRating' | 'lastUpdated' | 'reminderCount' | 'isActive'>): Promise<Student> => {
+    const response = await api.post('/students', studentData);
+    return response.data;
+  },
+
+  // Update student
+  update: async (id: string, studentData: Partial<Student>): Promise<Student> => {
+    const response = await api.put(`/students/${id}`, studentData);
+    return response.data;
+  },
+
+  // Delete student
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/students/${id}`);
+  },
+
+  // Get student's Codeforces data
+  getCodeforcesData: async (id: string, days?: number): Promise<StudentCodeforcesResponse> => {
+    const params = days ? { days } : {};
+    const response = await api.get(`/students/${id}/codeforces`, { params });
+    return response.data;
+  },
+
+  // Manual sync student data
+  syncData: async (id: string): Promise<ApiResponse<any>> => {
+    const response = await api.post(`/students/${id}/sync`);
+    return response.data;
+  },
+
+  // Export students as CSV
+  exportCSV: async (): Promise<Blob> => {
+    const response = await api.get('/students/export/csv', {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+};
+
+export const settingsApi = {
+  // Get settings
+  get: async () => {
+    const response = await api.get('/settings');
+    return response.data;
+  },
+
+  // Update cron schedule
+  updateSchedule: async (schedule: string) => {
+    const response = await api.put('/settings/cron', { schedule });
+    return response.data;
+  },
+
+  // Manual sync all students
+  manualSync: async () => {
+    const response = await api.post('/settings/sync');
+    return response.data;
+  },
+};
+
+export default api;
+</file>
+
+<file path="frontend/src/types/index.ts">
+export interface Student {
+  _id: string;
+  name: string;
+  email: string;
+  phoneNumber: string;
+  codeforcesHandle: string;
+  currentRating: number;
+  maxRating: number;
+  lastUpdated: string;
+  emailRemindersEnabled: boolean;
+  reminderCount: number;
+  lastReminderSent?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CodeforcesSubmission {
+  id: number;
+  contestId?: number;
+  creationTimeSeconds: number;
+  relativeTimeSeconds: number;
+  problem: {
+    contestId?: number;
+    index: string;
+    name: string;
+    type: string;
+    rating?: number;
+    tags: string[];
+  };
+  author: {
+    contestId?: number;
+    members: Array<{ handle: string }>;
+    participantType: string;
+    ghost: boolean;
+    startTimeSeconds?: number;
+  };
+  programmingLanguage: string;
+  verdict: string;
+  testset: string;
+  passedTestCount: number;
+  timeConsumedMillis: number;
+  memoryConsumedBytes: number;
+}
+
+export interface CodeforcesContest {
+  contestId: number;
+  contestName: string;
+  handle: string;
+  rank: number;
+  ratingUpdateTimeSeconds: number;
+  oldRating: number;
+  newRating: number;
+}
+
+export interface CodeforcesUserInfo {
+  handle: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  country?: string;
+  city?: string;
+  organization?: string;
+  contribution: number;
+  rank: string;
+  rating: number;
+  maxRank: string;
+  maxRating: number;
+  lastOnlineTimeSeconds: number;
+  registrationTimeSeconds: number;
+  friendOfCount: number;
+  avatar?: string;
+  titlePhoto?: string;
+}
+
+export interface CodeforcesData {
+  _id: string;
+  studentId: string;
+  handle: string;
+  submissions: CodeforcesSubmission[];
+  contests: CodeforcesContest[];
+  userInfo: CodeforcesUserInfo;
+  lastSyncTime: string;
+}
+
+export interface StudentAnalytics {
+  totalProblems: number;
+  avgProblemsPerDay: number;
+  avgRating: number;
+  maxDifficulty: number;
+  ratingBuckets: Record<string, number>;
+  submissions: CodeforcesSubmission[];
+}
+
+export interface StudentCodeforcesResponse {
+  student: Student;
+  codeforcesData: CodeforcesData;
+  analytics: StudentAnalytics;
+}
+
+export type FilterPeriod = 7 | 30 | 90 | 365;
+
+export interface ApiResponse<T> {
+  data: T;
+  message?: string;
+  error?: string;
+}
+</file>
+
+<file path="frontend/src/utils/chartUtils.ts">
+export const getRatingColor = (rating: number) => {
+  if (rating === 0) return '#6B7280'; // gray-500
+  if (rating < 1200) return '#6B7280'; // gray-600
+  if (rating < 1400) return '#059669'; // emerald-600
+  if (rating < 1600) return '#0891B2'; // cyan-600
+  if (rating < 1900) return '#2563EB'; // blue-600
+  if (rating < 2100) return '#7C3AED'; // violet-600
+  if (rating < 2300) return '#CA8A04'; // yellow-600
+  if (rating < 2400) return '#EA580C'; // orange-600
+  return '#DC2626'; // red-600
+};
+
+export const getRatingTitle = (rating: number) => {
+  if (rating === 0) return 'Unrated';
+  if (rating < 1200) return 'Newbie';
+  if (rating < 1400) return 'Pupil';
+  if (rating < 1600) return 'Specialist';
+  if (rating < 1900) return 'Expert';
+  if (rating < 2100) return 'Candidate Master';
+  if (rating < 2300) return 'Master';
+  if (rating < 2400) return 'International Master';
+  return 'Grandmaster';
+};
+
+export const formatChartData = (data: any[], xKey: string, yKey: string) => {
+  return data.map(item => ({
+    [xKey]: item[xKey],
+    [yKey]: item[yKey],
+    ...item
+  }));
+};
+</file>
+
+<file path="frontend/src/utils/csvUtils.ts">
+export const downloadCSV = (data: any[], filename: string) => {
+  const csvContent = convertToCSV(data);
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  
+  if (link.download !== undefined) {
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
+
+const convertToCSV = (data: any[]) => {
+  if (data.length === 0) return '';
+  
+  const headers = Object.keys(data[0]);
+  const csvRows = [
+    headers.join(','),
+    ...data.map(row => 
+      headers.map(header => {
+        const value = row[header];
+        return typeof value === 'string' && value.includes(',') 
+          ? `"${value}"` 
+          : value;
+      }).join(',')
+    )
+  ];
+  
+  return csvRows.join('\n');
+};
+</file>
+
+<file path="frontend/src/utils/dateUtils.ts">
+import { format, formatDistanceToNow } from 'date-fns';
+
+export const formatDate = (date: string | Date) => {
+  return format(new Date(date), 'MMM d, yyyy');
+};
+
+export const formatDateTime = (date: string | Date) => {
+  return format(new Date(date), 'MMM d, yyyy HH:mm');
+};
+
+export const formatRelativeTime = (date: string | Date) => {
+  return formatDistanceToNow(new Date(date), { addSuffix: true });
+};
+
+export const formatUnixTimestamp = (timestamp: number) => {
+  return format(new Date(timestamp * 1000), 'MMM d, yyyy HH:mm');
+};
+</file>
+
+<file path="frontend/src/vite-env.d.ts">
+/// <reference types="vite/client" />
+</file>
+
+<file path="frontend/tailwind.config.js">
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          50: '#eff6ff',
+          500: '#3b82f6',
+          600: '#2563eb',
+          700: '#1d4ed8',
+        },
+        dark: {
+          100: '#1f2937',
+          200: '#374151',
+          300: '#4b5563',
+          400: '#6b7280',
+          500: '#9ca3af',
+          600: '#d1d5db',
+          700: '#e5e7eb',
+          800: '#f3f4f6',
+          900: '#f9fafb',
+        }
+      }
+    },
+  },
+  plugins: [],
+}
+</file>
+
+<file path="frontend/tsconfig.app.json">
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["src"]
+}
+</file>
+
+<file path="frontend/tsconfig.json">
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
+}
+</file>
+
+<file path="frontend/tsconfig.node.json">
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["vite.config.ts"]
+}
+</file>
+
+<file path="frontend/vite.config.ts">
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react()],
+})
+</file>
+
+</files>
